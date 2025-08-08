@@ -11,7 +11,7 @@ Star Wars favorites service built with Django and Django REST Framework.
 ### 1) Clone and enter
 
 ```bash
-git clone <your-repo-url> starfavs
+git clone https://github.com/JasonDsouza212/StarFavs.git starfavs
 cd starfavs
 ```
 
@@ -27,12 +27,6 @@ source env/bin/activate
 
 ```bash
 pip install -r requirements.txt
-```
-
-If you don’t have a requirements file yet, install the core libs:
-
-```bash
-pip install django==4.2.7 djangorestframework==3.16.1 psycopg2-binary==2.9.10
 ```
 
 ### 4) Configure database
