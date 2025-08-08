@@ -1,0 +1,101 @@
+# macOS
+.DS_Store
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Tooling / IDE
+.vscode/
+.idea/
+.spyproject
+.ropeproject
+
+# Logs
+*.log
+
+# Django
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+
+# Pip / packaging
+.dist-info/
+*.egg-info/
+*.egg
+build/
+dist/
+eggs/
+.eggs/
+wheels/
+downloads/
+sdist/
+develop-eggs/
+share/python-wheels/
+MANIFEST
+.installed.cfg
+
+# PyInstaller
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+.benchmarks
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# Jupyter/IPython
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# Sphinx
+docs/_build/
+
+# PyBuilder
+target/
+
+# PDM
+__pypackages__/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# direnv / dotenv
+.env
+.env.*
+.envrc
