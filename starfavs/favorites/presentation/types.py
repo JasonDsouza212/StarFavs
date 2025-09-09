@@ -65,15 +65,16 @@ class ListContentInput:
     limit: int = 10
     search: Optional[str] = None
 
+
 @dataclass
 class ContentItem:
     title: Optional[str] = None
-    name: Optional[str] = None 
+    name: Optional[str] = None
     created: str = ""
     edited: str = ""
     url: str = ""
     is_favourite: bool = False
-    release_date: Optional[str] = None 
+    release_date: Optional[str] = None
 
 
 @dataclass

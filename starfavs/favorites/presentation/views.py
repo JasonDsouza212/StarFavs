@@ -29,10 +29,10 @@ from starfavs.favorites.domain.use_cases.use_cases import (
     GetUserFavoritesInput,
     DeleteUserFavoriteStrictUC,
     DeleteUserFavoriteStrictInput,
-    ListContentWithCustomizationsUC
+    ListContentWithCustomizationsUC,
 )
 
-from starfavs.favorites.presentation.types import ContentListResponse,ListContentInput
+from starfavs.favorites.presentation.types import ContentListResponse, ListContentInput
 
 favorite_repository = FavoriteRepository()
 
@@ -131,7 +131,7 @@ def delete_user_favorite_by_id(request, user_id, record_type, favorite_id):
 
 
 @api_view(["GET"])
-def list_content_with_customizations(request,record_type):
+def list_content_with_customizations(request, record_type):
     """List content for a given record type for a user"""
 
     # Fetch parameters from the request
@@ -171,9 +171,13 @@ def list_content_with_customizations(request,record_type):
 
     # Serialize the content items to return only the fields we need
     if record_type == "movie":
-        serialized_favorite_items = MovieContentSerializer(content_items.results, many=True)
+        serialized_favorite_items = MovieContentSerializer(
+            content_items.results, many=True
+        )
     else:
-        serialized_favorite_items = PlanetContentSerializer(content_items.results, many=True)
+        serialized_favorite_items = PlanetContentSerializer(
+            content_items.results, many=True
+        )
 
     return Response(
         {
@@ -192,5 +196,3 @@ def list_content_with_customizations(request,record_type):
         },
         status=status.HTTP_200_OK,
     )
-
-

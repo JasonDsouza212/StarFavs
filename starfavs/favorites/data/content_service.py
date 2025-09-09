@@ -3,7 +3,12 @@ import logging
 from typing import Dict
 from django.core.cache import cache
 from .db_repository import FavoriteRepository
-from starfavs.favorites.presentation.types import ResourceConfig, RecordType ,ContentItem ,ContentListResponse
+from starfavs.favorites.presentation.types import (
+    ResourceConfig,
+    RecordType,
+    ContentItem,
+    ContentListResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +148,10 @@ class ContentService:
             Dict with keys: count, next, previous, results, total_favorites.
         Raises:
             ValueError: If record_type is not supported.
-        
+
         TODO: Limit is always 10. This functionality needs to be dynamic.
         """
-        
+
         record_type_key = RecordType(record_type)
         resource_config = self.resource_config_map[record_type_key]
 
@@ -213,9 +218,7 @@ class ContentService:
                 "created": source_data.get("created", ""),
                 "edited": source_data.get("edited", ""),
                 "url": url or source_data.get("url", ""),
-                "is_favourite": bool(
-                    external_id and external_id in favorite_lookup
-                ),
+                "is_favourite": bool(external_id and external_id in favorite_lookup),
             }
 
             if display_field == "title":

@@ -13,8 +13,9 @@ from starfavs.favorites.presentation.types import (
     GetUserFavoritesInput,
     DeleteUserFavoriteStrictInput,
     ListContentInput,
-    ContentListResponse
+    ContentListResponse,
 )
+
 
 class CreateFavoriteUC:
     """Create a new favorite for a user."""
@@ -133,10 +134,9 @@ class ListContentWithCustomizationsUC:
         """List content for a given record type for a user"""
 
         return self.content_service.get_content_with_custom_names(
-                user_id=input.user_id,
-                page=input.page,
-                limit=input.limit,
-                search=input.search,
-                record_type=input.record_type,
-            )
-
+            user_id=input.user_id,
+            page=input.page,
+            limit=input.limit,
+            search=input.search,
+            record_type=input.record_type,
+        )

@@ -4,6 +4,7 @@ from django.db import IntegrityError
 from starfavs.favorites.domain.models import Favorite
 from starfavs.user.domain.models import User
 
+
 class FavoriteRepository:
     """
     Repository for Favorite data access operations.
@@ -94,14 +95,13 @@ class FavoriteRepository:
         ).exists()
 
     def get_user_favorites(
-    self,
-    user_id: int,
-    record_type: str | None = None,
-) -> List[Favorite]:
+        self,
+        user_id: int,
+        record_type: str | None = None,
+    ) -> List[Favorite]:
         favorites = Favorite.objects.filter(user_id=user_id)
 
         if record_type:
             favorites = favorites.filter(record_type=record_type)
 
         return list(favorites.order_by("-created_at"))
-
