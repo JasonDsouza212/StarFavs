@@ -3,7 +3,7 @@ from . import views
 
 urlpatterns = [
     path(
-        "content/",
+        "<str:record_type>/",
         views.list_content_with_customizations,
         name="list-content-with-customizations",
     ),

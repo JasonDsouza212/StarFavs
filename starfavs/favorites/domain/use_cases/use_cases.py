@@ -1,8 +1,7 @@
 # starfavs/favorites/domain/use_cases/use_cases.py
 """Application use cases for favorites and content listing."""
 
-from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import List
 from starfavs.favorites.data.db_repository import FavoriteRepository
 from starfavs.favorites.data.content_service import ContentService
 from starfavs.favorites.domain.models import Favorite
@@ -14,8 +13,8 @@ from starfavs.favorites.presentation.types import (
     GetUserFavoritesInput,
     DeleteUserFavoriteStrictInput,
     ListContentInput,
+    ContentListResponse
 )
-
 
 class CreateFavoriteUC:
     """Create a new favorite for a user."""
@@ -130,18 +129,14 @@ class ListContentWithCustomizationsUC:
     def __init__(self, content_service: ContentService):
         self.content_service = content_service
 
-    def execute(self, input: ListContentInput) -> Dict[str, Any]:
-        """Return paginated content with custom names and is_favourite flag."""
-        if input.record_type == "movie":
-            return self.content_service.get_movies_with_custom_names(
+    def execute(self, input: ListContentInput) -> ContentListResponse:
+        """List content for a given record type for a user"""
+
+        return self.content_service.get_content_with_custom_names(
                 user_id=input.user_id,
                 page=input.page,
                 limit=input.limit,
                 search=input.search,
+                record_type=input.record_type,
             )
-        return self.content_service.get_planets_with_custom_names(
-            user_id=input.user_id,
-            page=input.page,
-            limit=input.limit,
-            search=input.search,
-        )
+
