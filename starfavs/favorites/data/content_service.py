@@ -311,10 +311,9 @@ class ContentService:
                     favorite_lookup,
                     include_release_date,
                 )
-                display_value = self._get_item_display_value(item, display_field)
                 self._add_to_results_if_query_matches(
                     item,
-                    display_value,
+                    item.get(display_field, ""),
                     external_id,
                     search_query,
                     matched_items,
