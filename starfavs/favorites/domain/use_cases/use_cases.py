@@ -98,7 +98,7 @@ class GetUserFavoritesUC:
     def execute(self, input: GetUserFavoritesInput) -> List[Favorite]:
         return self.repo.get_user_favorites(
             user_id=input.user_id, record_type=input.record_type
-        )
+        ).get("favorites")
 
 
 class DeleteUserFavoriteStrictUC:

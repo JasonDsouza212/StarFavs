@@ -181,12 +181,12 @@ def list_content_with_customizations(request, record_type):
 
     return Response(
         {
-            "count": content_items.count,
             "next": content_items.next,
             "previous": content_items.previous,
             "results": serialized_favorite_items.data,
             "total_favorites": content_items.total_favorites,
             "request_info": {
+                "count": content_items.count,
                 "user_id": user_id,
                 "record_type": record_type,
                 "page": page,

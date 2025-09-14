@@ -28,7 +28,7 @@ class StarWarsAPIService:
             search: Optional search query passed through to the API.
 
         Returns:
-            JSON-like dict with keys: count, next, previous, results.
+            JSON-like dict with keys: next, previous, results.
         """
         cache_key = f"sw_api_{resource}_page_{page}_search_{search or ''}"
         cached_result = cache.get(cache_key)
@@ -47,7 +47,7 @@ class StarWarsAPIService:
             return data
         except requests.RequestException as e:
             logger.error("Error fetching %s from external API: %s", resource, e)
-            return {"results": [], "count": 0, "next": None, "previous": None}
+            return {"results": [], "next": None, "previous": None}
 
     def get_movies(self, page: int = 1, search: str = "") -> Dict:
         return self.get_resources("films", page=page, search=search)
@@ -226,7 +226,7 @@ class ContentService:
                 merges results, and returns a paginated slice.
 
         Returns:
-            Dict with keys: count, next, previous, results, total_favorites.
+            Dict with keys: next, previous, results, total_favorites.
         Raises:
             ValueError: If record_type is not supported.
 
@@ -247,9 +247,12 @@ class ContentService:
         resource_path: str = resource_config.resource_path
 
         # Get the user favorites for the record type
-        user_favorites = self.favorite_repository.get_user_favorites(
-            user_id=user_id, record_type=record_type
+        user_favorites_details = self.favorite_repository.get_user_favorites(
+            user_id=user_id, record_type=record_type, search=search
         )
+
+        user_favorites = user_favorites_details["favorites"]
+        total_favorites_count = user_favorites_details["total_count"]
 
         # Get the external ID to custom title mapping
         favorite_lookup = {
@@ -276,11 +279,11 @@ class ContentService:
                 )
 
             return ContentListResponse(
-                count=api_page.get("count", len(results)),
+                count=api_page.get("count"),
                 next=api_page.get("next"),
                 previous=api_page.get("previous"),
                 results=results[: max(1, int(limit))],
-                total_favorites=len(favorite_lookup),
+                total_favorites=total_favorites_count,
             )
 
         # If search query, fetch the API pages, user favorites and build the results
@@ -295,7 +298,7 @@ class ContentService:
         # Fetch the API pages and add the items to the results if they match the search query
         current_page = 1
         while True:
-            api_page = fetch_page(current_page)
+            api_page = fetch_page(current_page, search=search_query)
             api_results = api_page.get("results", [])
             if not api_results:
                 break
@@ -313,7 +316,7 @@ class ContentService:
                 )
                 self._add_to_results_if_query_matches(
                     item,
-                    item.get(display_field, ""),
+                    getattr(item, display_field, ""),
                     external_id,
                     search_query,
                     matched_items,
@@ -351,19 +354,16 @@ class ContentService:
                 )
                 self._add_to_results_if_query_matches(
                     item,
-                    item.get(display_field, ""),
+                    getattr(item, display_field, ""),
                     external_id,
                     search_query,
                     matched_items,
                     seen_external_ids,
                 )
-
-        total = len(matched_items)
         paginated_results = matched_items[start_index:end_index]
         return ContentListResponse(
-            count=total,
             next=None,
             previous=None,
             results=paginated_results,
-            total_favorites=len(favorite_lookup),
+            total_favorites=total_favorites_count,
         )

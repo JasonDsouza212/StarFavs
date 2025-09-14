@@ -98,10 +98,23 @@ class FavoriteRepository:
         self,
         user_id: int,
         record_type: str | None = None,
-    ) -> List[Favorite]:
+        search: str | None = None,
+    ) -> Dict[str, List[Favorite] | int]:
+        
         favorites = Favorite.objects.filter(user_id=user_id)
 
         if record_type:
             favorites = favorites.filter(record_type=record_type)
+            
+        total_count = favorites.count()
 
-        return list(favorites.order_by("-created_at"))
+        if search:
+            favorites = favorites.filter(custom_title__icontains=search)
+
+        favorites = favorites.order_by("-created_at")
+        favorites_list = list(favorites)
+
+        return {
+            "favorites": favorites_list,
+            "total_count": total_count
+        }

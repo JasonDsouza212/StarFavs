@@ -79,8 +79,8 @@ class ContentItem:
 
 @dataclass
 class ContentListResponse:
-    count: int
     next: Optional[str]
     previous: Optional[str]
     results: List[ContentItem]
     total_favorites: int
+    count: Optional[int] = None  
