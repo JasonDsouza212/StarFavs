@@ -28,7 +28,7 @@ class StarWarsAPIService:
             search: Optional search query passed through to the API.
 
         Returns:
-            JSON-like dict with keys: next, previous, results.
+            JSON-like dict with keys: count, next, previous, results.
         """
         cache_key = f"sw_api_{resource}_page_{page}_search_{search or ''}"
         cached_result = cache.get(cache_key)
@@ -47,7 +47,7 @@ class StarWarsAPIService:
             return data
         except requests.RequestException as e:
             logger.error("Error fetching %s from external API: %s", resource, e)
-            return {"results": [], "next": None, "previous": None}
+            return {"results": [], "count": 0, "next": None, "previous": None}
 
     def get_movies(self, page: int = 1, search: str = "") -> Dict:
         return self.get_resources("films", page=page, search=search)
