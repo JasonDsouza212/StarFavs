@@ -13,6 +13,7 @@ class Favorite(models.Model):
     """
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="favorites")
+    # TODO: Add indexing for faster searching
     custom_title = models.CharField(max_length=200, blank=True, null=True)
     original_name = models.CharField(max_length=200)
     external_record_id = models.CharField(max_length=50)  # ID from external API

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, List
 from enum import Enum
 
 
@@ -64,3 +64,23 @@ class ListContentInput:
     page: int = 1
     limit: int = 10
     search: Optional[str] = None
+
+
+@dataclass
+class ContentItem:
+    title: Optional[str] = None
+    name: Optional[str] = None
+    created: str = ""
+    edited: str = ""
+    url: str = ""
+    is_favourite: bool = False
+    release_date: Optional[str] = None
+
+
+@dataclass
+class ContentListResponse:
+    next: Optional[str]
+    previous: Optional[str]
+    results: List[ContentItem]
+    total_favorites: int
+    count: Optional[int] = None  

@@ -3,7 +3,12 @@ import logging
 from typing import Dict
 from django.core.cache import cache
 from .db_repository import FavoriteRepository
-from starfavs.favorites.presentation.types import ResourceConfig, RecordType
+from starfavs.favorites.presentation.types import (
+    ResourceConfig,
+    RecordType,
+    ContentItem,
+    ContentListResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +123,90 @@ class ContentService:
             ),
         }
 
+    """Helper functions for the content service """
+
     def _normalized_id(self, url: str) -> str:
         external_id = self.api_service.extract_id_from_url(url or "")
         return str(external_id).strip()
+
+    # Function to get the display value for the item
+    def _get_display_label_value(
+        self,
+        source_data: dict,
+        external_id: str,
+        display_field: str,
+        favorite_lookup: dict,
+        custom_title: str = None,
+    ) -> str:
+        """Get display value, Add's custom title over original name."""
+        if custom_title is None:
+            custom_title = favorite_lookup.get(external_id, "")
+
+        if custom_title and custom_title.strip():
+            return custom_title.strip()
+
+        return source_data.get(display_field, "")
+
+    def _get_item_display_value(self, item: ContentItem, display_field: str) -> str:
+        """Get the display value from a ContentItem based on record type."""
+        if display_field == "title":
+            return item.title or ""
+        else:  # display_field == "name"
+            return item.name or ""
+
+    # Function to build the item for the response
+    def _build_item(
+        self,
+        source_data: dict,
+        external_id: str,
+        display_field: str,
+        favorite_lookup: dict,
+        include_release_date: bool,
+        custom_title: str = None,
+        url: str = None,
+    ) -> ContentItem:
+        """Build a standardized result item for planet or movie."""
+
+        # Get display value for the item
+        display_value = self._get_display_label_value(
+            source_data, external_id, display_field, favorite_lookup, custom_title
+        )
+
+        item = {
+            "created": source_data.get("created", ""),
+            "edited": source_data.get("edited", ""),
+            "url": url or source_data.get("url", ""),
+            "is_favourite": bool(external_id and external_id in favorite_lookup),
+        }
+
+        if display_field == "title":
+            item["title"] = display_value
+            if include_release_date:
+                item["release_date"] = source_data.get("release_date", "")
+        else:
+            item["name"] = display_value
+
+        return ContentItem(**item)
+
+    # Function to check if the item matches the search criteria
+    def _should_include_in_search(self, display_value: str, search_query: str) -> bool:
+        """Check if item matches search criteria."""
+        return search_query in (display_value or "").lower()
+
+    # Function to add the item to the results if it matches the search criteria
+    def _add_to_results_if_query_matches(
+        self,
+        item: dict,
+        display_value: str,
+        external_id: str,
+        search_query: str,
+        matched_items: list,
+        seen_ids: set,
+    ):
+        """Add item to results if it matches search and hasn't been seen."""
+        if self._should_include_in_search(display_value, search_query):
+            matched_items.append(item)
+            seen_ids.add(external_id)
 
     def get_content_with_custom_names(
         self,
@@ -129,25 +215,23 @@ class ContentService:
         page: int = 1,
         limit: int = 10,
         search: str | None = None,
-    ) -> dict:
+    ) -> ContentListResponse:
         """
         Args:
             user_id: The requesting user ID.
             record_type: "movie" or "planet".
             page: 1-based page index for the response slice.
-            limit: Max results to return.
             search: If empty/blank, returns decorated API page. If provided,
                 searches across API pages (title/name) and user's favorites,
                 merges results, and returns a paginated slice.
 
         Returns:
-            Dict with keys: count, next, previous, results, total_favorites.
+            Dict with keys: next, previous, results, total_favorites.
         Raises:
             ValueError: If record_type is not supported.
+
+        TODO: Limit is always 10. This functionality needs to be dynamic.
         """
-        record_type = (record_type or "").strip().lower()
-        if record_type not in {"movie", "planet"}:
-            raise ValueError("Unsupported record_type. Expected 'movie' or 'planet'.")
 
         record_type_key = RecordType(record_type)
         resource_config = self.resource_config_map[record_type_key]
@@ -155,50 +239,54 @@ class ContentService:
         if not resource_config:
             raise ValueError("Unsupported record_type")
 
+        # Get the resource config for the record type
         display_field: str = resource_config.display_field
         fetch_page = resource_config.fetch_page
         fetch_detail = resource_config.fetch_detail
         include_release_date: bool = resource_config.include_release_date
         resource_path: str = resource_config.resource_path
 
-        custom_name_by_id = self.favorite_repository.get_user_custom_names_mapping(
-            user_id, record_type
-        )
-        favorite_ids = self.favorite_repository.get_user_favorited_external_ids(
-            user_id, record_type
+        # Get the user favorites for the record type
+        user_favorites_details = self.favorite_repository.get_user_favorites(
+            user_id=user_id, record_type=record_type, search=search
         )
 
-        def _build_result_item(
-            source: dict, external_id: str, display_value: str
-        ) -> dict:
-            item = {
-                display_field: display_value,
-                "created": source.get("created", ""),
-                "edited": source.get("edited", ""),
-                "url": source.get("url", ""),
-                "is_favourite": bool(external_id and external_id in favorite_ids),
-            }
-            if include_release_date:
-                item["release_date"] = source.get("release_date", "")
-            return item
+        user_favorites = user_favorites_details["favorites"]
+        total_favorites_count = user_favorites_details["total_count"]
 
+        # Get the external ID to custom title mapping
+        favorite_lookup = {
+            str(f.external_record_id).strip(): (
+                f.custom_title.strip() if f.custom_title else ""
+            )
+            for f in user_favorites
+        }
+
+        # If no search query, fetch the API page and build the results
         if not (search and search.strip()):
             api_page = fetch_page(page)
             results = []
             for obj in api_page.get("results", []):
                 external_id = self._normalized_id(obj.get("url", ""))
-                display_value = custom_name_by_id.get(
-                    external_id, obj.get(display_field, "")
+                results.append(
+                    self._build_item(
+                        obj,
+                        external_id,
+                        display_field,
+                        favorite_lookup,
+                        include_release_date,
+                    )
                 )
-                results.append(_build_result_item(obj, external_id, display_value))
-            return {
-                "count": api_page.get("count", len(results)),
-                "next": api_page.get("next"),
-                "previous": api_page.get("previous"),
-                "results": results[: max(1, int(limit))],
-                "total_favorites": len(favorite_ids),
-            }
 
+            return ContentListResponse(
+                count=api_page.get("count"),
+                next=api_page.get("next"),
+                previous=api_page.get("previous"),
+                results=results[: max(1, int(limit))],
+                total_favorites=total_favorites_count,
+            )
+
+        # If search query, fetch the API pages, user favorites and build the results
         search_query = search.strip().lower()
         page = max(1, int(page))
         start_index = (page - 1) * limit
@@ -207,9 +295,10 @@ class ContentService:
         matched_items: list[dict] = []
         seen_external_ids: set[str] = set()
 
+        # Fetch the API pages and add the items to the results if they match the search query
         current_page = 1
         while True:
-            api_page = fetch_page(current_page)
+            api_page = fetch_page(current_page, search=search_query)
             api_results = api_page.get("results", [])
             if not api_results:
                 break
@@ -218,14 +307,21 @@ class ContentService:
                 external_id = self._normalized_id(obj.get("url", ""))
                 if not external_id or external_id in seen_external_ids:
                     continue
-                display_value = custom_name_by_id.get(
-                    external_id, obj.get(display_field, "")
+                item = self._build_item(
+                    obj,
+                    external_id,
+                    display_field,
+                    favorite_lookup,
+                    include_release_date,
                 )
-                if search_query in (display_value or "").lower():
-                    matched_items.append(
-                        _build_result_item(obj, external_id, display_value)
-                    )
-                    seen_external_ids.add(external_id)
+                self._add_to_results_if_query_matches(
+                    item,
+                    getattr(item, display_field, ""),
+                    external_id,
+                    search_query,
+                    matched_items,
+                    seen_external_ids,
+                )
 
             if len(matched_items) >= end_index:
                 break
@@ -233,63 +329,41 @@ class ContentService:
                 break
             current_page += 1
 
-        favorite_matches = self.favorite_repository.search_user_favorites(
-            user_id, record_type, search_query
-        )
-        for fav in favorite_matches:
-            external_id = str(fav.external_record_id).strip()
-            if not external_id or external_id in seen_external_ids:
-                continue
-            detail = fetch_detail(external_id)
-            if not detail:
-                continue
-            url = (
-                detail.get("url")
-                or f"{self.api_service.BASE_URL}/{resource_path}/{external_id}/"
-            )
-            display_value = (fav.custom_title or "").strip() or detail.get(
-                display_field, ""
-            )
-            item = {
-                display_field: display_value,
-                "created": detail.get("created", ""),
-                "edited": detail.get("edited", ""),
-                "url": url,
-                "is_favourite": True,
-            }
-            if include_release_date:
-                item["release_date"] = detail.get("release_date", "")
-            matched_items.append(item)
-            seen_external_ids.add(external_id)
-
-        total = len(matched_items)
+        # Skip processing favorites if we've already got enough to satisfy pagination
+        if len(matched_items) < end_index:
+            # Fetch the user favorites and add the items to the results if they match the search query
+            for fav in user_favorites:
+                external_id = str(fav.external_record_id).strip()
+                if not external_id or external_id in seen_external_ids:
+                    continue
+                detail = fetch_detail(external_id)
+                if not detail:
+                    continue
+                url = (
+                    detail.get("url")
+                    or f"{self.api_service.BASE_URL}/{resource_path}/{external_id}/"
+                )
+                item = self._build_item(
+                    detail,
+                    external_id,
+                    display_field,
+                    favorite_lookup,
+                    include_release_date,
+                    fav.custom_title,
+                    url,
+                )
+                self._add_to_results_if_query_matches(
+                    item,
+                    getattr(item, display_field, ""),
+                    external_id,
+                    search_query,
+                    matched_items,
+                    seen_external_ids,
+                )
         paginated_results = matched_items[start_index:end_index]
-        return {
-            "count": total,
-            "next": None,
-            "previous": None,
-            "results": paginated_results,
-            "total_favorites": len(favorite_ids),
-        }
-
-    def get_movies_with_custom_names(
-        self, user_id: int, page: int = 1, limit: int = 10, search: str | None = None
-    ) -> dict:
-        return self.get_content_with_custom_names(
-            user_id=user_id,
-            record_type="movie",
-            page=page,
-            limit=limit,
-            search=search,
-        )
-
-    def get_planets_with_custom_names(
-        self, user_id: int, page: int = 1, limit: int = 10, search: str | None = None
-    ) -> dict:
-        return self.get_content_with_custom_names(
-            user_id=user_id,
-            record_type="planet",
-            page=page,
-            limit=limit,
-            search=search,
+        return ContentListResponse(
+            next=None,
+            previous=None,
+            results=paginated_results,
+            total_favorites=total_favorites_count,
         )

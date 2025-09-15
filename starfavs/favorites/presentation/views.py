@@ -30,8 +30,9 @@ from starfavs.favorites.domain.use_cases.use_cases import (
     DeleteUserFavoriteStrictUC,
     DeleteUserFavoriteStrictInput,
     ListContentWithCustomizationsUC,
-    ListContentInput,
 )
+
+from starfavs.favorites.presentation.types import ContentListResponse, ListContentInput
 
 favorite_repository = FavoriteRepository()
 
@@ -130,9 +131,11 @@ def delete_user_favorite_by_id(request, user_id, record_type, favorite_id):
 
 
 @api_view(["GET"])
-def list_content_with_customizations(request):
+def list_content_with_customizations(request, record_type):
+    """List content for a given record type for a user"""
+
+    # Fetch parameters from the request
     user_id = request.query_params.get("user_id")
-    record_type = request.query_params.get("record_type", "movie")
     page = int(request.query_params.get("page", 1))
     limit = int(request.query_params.get("limit", 10))
     search = request.query_params.get("search")
@@ -149,13 +152,14 @@ def list_content_with_customizations(request):
             {"error": "user_id must be a valid integer"},
             status=status.HTTP_400_BAD_REQUEST,
         )
+    # Validate record type
     if record_type not in ["movie", "planet"]:
         return Response(
             {"error": 'record_type must be either "movie" or "planet"'},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
-    raw = list_content_use_case.execute(
+    # Execute the use case to get the content items
+    content_items: ContentListResponse = list_content_use_case.execute(
         ListContentInput(
             user_id=user_id,
             record_type=record_type,
@@ -164,25 +168,30 @@ def list_content_with_customizations(request):
             search=search,
         )
     )
+
+    # Serialize the content items to return only the fields we need
     if record_type == "movie":
-        ser = MovieContentSerializer(raw.get("results", []), many=True)
+        serialized_favorite_items = MovieContentSerializer(
+            content_items.results, many=True
+        )
     else:
-        ser = PlanetContentSerializer(raw.get("results", []), many=True)
+        serialized_favorite_items = PlanetContentSerializer(
+            content_items.results, many=True
+        )
 
     return Response(
         {
-            "count": raw.get("count", 0),
-            "next": raw.get("next"),
-            "previous": raw.get("previous"),
-            "results": ser.data,
-            "total_favorites": raw.get("total_favorites", 0),
+            "next": content_items.next,
+            "previous": content_items.previous,
+            "results": serialized_favorite_items.data,
+            "total_favorites": content_items.total_favorites,
             "request_info": {
+                "count": content_items.count,
                 "user_id": user_id,
                 "record_type": record_type,
                 "page": page,
                 "limit": limit,
                 "search": search or "",
-                "total_results": len(ser.data),
             },
         },
         status=status.HTTP_200_OK,

@@ -3,7 +3,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
 from starfavs.favorites.domain.models import Favorite
 from starfavs.user.domain.models import User
-from django.db.models import Q
 
 
 class FavoriteRepository:
@@ -40,17 +39,6 @@ class FavoriteRepository:
             return Favorite.objects.get(id=favorite_id)
         except ObjectDoesNotExist:
             return None
-
-    def get_user_favorites(
-        self, user_id: int, record_type: str = None
-    ) -> List[Favorite]:
-        """
-        Get all favorites for a user, optionally filtered by record type.
-        """
-        queryset = Favorite.objects.filter(user_id=user_id)
-        if record_type:
-            queryset = queryset.filter(record_type=record_type)
-        return list(queryset.order_by("-created_at"))
 
     def update_favorite_title(
         self, favorite_id: int, custom_title: str
@@ -106,30 +94,27 @@ class FavoriteRepository:
             record_type=record_type,
         ).exists()
 
-    def get_user_custom_names_mapping(
-        self, user_id: int, record_type: str
-    ) -> Dict[str, str]:
-        favorites = (
-            Favorite.objects.filter(user_id=user_id, record_type=record_type)
-            .exclude(custom_title__isnull=True)
-            .exclude(custom_title__exact="")
-        )
+    def get_user_favorites(
+        self,
+        user_id: int,
+        record_type: str | None = None,
+        search: str | None = None,
+    ) -> Dict[str, List[Favorite] | int]:
+        
+        favorites = Favorite.objects.filter(user_id=user_id)
+
+        if record_type:
+            favorites = favorites.filter(record_type=record_type)
+            
+        total_count = favorites.count()
+
+        if search:
+            favorites = favorites.filter(custom_title__icontains=search)
+
+        favorites = favorites.order_by("-created_at")
+        favorites_list = list(favorites)
+
         return {
-            str(f.external_record_id).strip(): f.custom_title.strip() for f in favorites
+            "favorites": favorites_list,
+            "total_count": total_count
         }
-
-    def get_user_favorited_external_ids(self, user_id: int, record_type: str) -> set:
-        q = Favorite.objects.filter(
-            user_id=user_id, record_type=record_type
-        ).values_list("external_record_id", flat=True)
-        return {str(eid).strip() for eid in q if eid is not None and str(eid).strip()}
-
-    def search_user_favorites(self, user_id: int, record_type: str, search: str):
-        s = (search or "").strip()
-        if not s:
-            return Favorite.objects.none()
-        return (
-            Favorite.objects.filter(user_id=user_id, record_type=record_type)
-            .filter(custom_title__icontains=s)
-            .only("external_record_id", "custom_title")
-        )
