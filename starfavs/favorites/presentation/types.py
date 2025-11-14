@@ -51,13 +51,6 @@ class GetUserFavoritesInput:
 
 
 @dataclass
-class DeleteUserFavoriteStrictInput:
-    user_id: int
-    record_type: str
-    favorite_id: int
-
-
-@dataclass
 class ListContentInput:
     user_id: int
     record_type: str

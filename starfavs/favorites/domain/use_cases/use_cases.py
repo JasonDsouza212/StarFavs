@@ -11,7 +11,6 @@ from starfavs.favorites.presentation.types import (
     DeleteFavoriteByIdInput,
     DeleteUserFavoritesByTypeInput,
     GetUserFavoritesInput,
-    DeleteUserFavoriteStrictInput,
     ListContentInput,
     ContentListResponse,
 )
@@ -72,7 +71,7 @@ class DeleteFavoriteByIdUC:
         self.repo = repo
 
     def execute(self, input: DeleteFavoriteByIdInput) -> bool:
-        return self.repo.delete_favorite_by_id(input.favorite_id)
+        return self.repo.delete_favorites(favorite_id=input.favorite_id)
 
 
 class DeleteUserFavoritesByTypeUC:
@@ -82,7 +81,7 @@ class DeleteUserFavoritesByTypeUC:
         self.repo = repo
 
     def execute(self, input: DeleteUserFavoritesByTypeInput) -> bool:
-        return self.repo.delete_user_favorite_by_type(
+        return self.repo.delete_favorites(
             user_id=input.user_id,
             record_type=input.record_type,
             external_record_id=input.external_record_id,
@@ -99,29 +98,6 @@ class GetUserFavoritesUC:
         return self.repo.get_user_favorites(
             user_id=input.user_id, record_type=input.record_type
         ).get("favorites")
-
-
-class DeleteUserFavoriteStrictUC:
-    """Strict delete that validates user ownership and record type before deleting."""
-
-    def __init__(self, repo: FavoriteRepository):
-        self.repo = repo
-
-    def execute(self, input: DeleteUserFavoriteStrictInput) -> bool:
-        """Delete after validating the favorite belongs to the user and type matches.
-
-        Raises:
-            ValueError: If favorite not found or type mismatch.
-            PermissionError: If favorite doesn't belong to user.
-        """
-        fav = self.repo.get_favorite_by_id(input.favorite_id)
-        if not fav:
-            raise ValueError("Favorite not found")
-        if fav.user_id != input.user_id:
-            raise PermissionError("Favorite does not belong to the specified user")
-        if fav.record_type != input.record_type:
-            raise ValueError(f"Favorite is not of type {input.record_type}")
-        return self.repo.delete_favorite_by_id(input.favorite_id)
 
 
 class ListContentWithCustomizationsUC:
